@@ -3,6 +3,8 @@ package com.dmadev.showcase;
 import org.springframework.context.MessageSource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -27,28 +29,31 @@ public class TasksRestController {
 
 
     @GetMapping
-    public ResponseEntity<List<Task>> handleGetAllTasks() {
+    public ResponseEntity<List<Task>> handleGetAllTasks(
+            @AuthenticationPrincipal ApplicationUser user) {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(this.taskRepository.findAll());
+                .body(this.taskRepository.findByApplicationUserId(user.id()));
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<?> handleCreateNewTask(
+            ApplicationUser user,
             @RequestBody NewTaskPayload payload,
             UriComponentsBuilder uriComponentsBuilder,
             Locale locale
     ) {
         if (payload.details() == null || payload.details().isBlank()) {
             final var message =
-                    this.messageSource.getMessage("tasks.create.details.errors.not_set",new Object[0],locale);
+                    this.messageSource.getMessage("tasks.create.details.errors.not_set", new Object[0], locale);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new ErrorsPresentation(
                             List.of(message))
                     );
         } else {
-            Task task = new Task(payload.details());
+            Task task = new Task(payload.details(), user.id());
             this.taskRepository.save(task);
             return ResponseEntity.created(
                             uriComponentsBuilder
@@ -62,11 +67,9 @@ public class TasksRestController {
 
     //всё что находится в фигурных скобках в аннотациях маппинга- это переменная пути
     @GetMapping("{id}")
-    public ResponseEntity<Task> handleFindTask(@PathVariable("id") UUID id){
+    public ResponseEntity<Task> handleFindTask(@PathVariable("id") UUID id) {
         return ResponseEntity.of(this.taskRepository.findById(id));
     }
-
-
 
 
 }
